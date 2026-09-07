@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather Analytics Dashboard</title>
+  <!-- Google Fonts & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="app-sidebar" id="appSidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">⚡</div>
+        <div>
+          <div class="brand-title">Weather Dashboard</div>
+          <div class="brand-subtitle">Met Analytics Pro</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Navigation</div>
+        <a href="index.html" class="nav-link active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+            <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+            <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+            <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+          </svg>
+          Dashboard
+        </a>
+        <a href="reports.html" class="nav-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          Reports
+        </a>
+        <a href="cities.html" class="nav-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
+          Cities
+        </a>
+      </nav>
+
+      <!-- Sidebar Footer: System Status -->
+      <div class="sidebar-footer">
+        <div class="system-status-card">
+          <div class="status-card-header">
+            <span>System Status</span>
+            <span style="font-size: 10px; color: #64748b;">LIVE</span>
+          </div>
+          <div class="status-row">
+            <span>Redis Cache</span>
+            <span class="status-indicator">
+              <span class="status-dot" id="statusRedisDot"></span>
+              <span id="statusRedisText" style="font-size: 11px;">Checking...</span>
+            </span>
+          </div>
+          <div class="status-row">
+            <span>Weather API</span>
+            <span class="status-indicator">
+              <span class="status-dot" id="statusApiDot"></span>
+              <span id="statusApiText" style="font-size: 11px;">Checking...</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <div class="main-wrapper">
+      
+      <!-- Top Navigation / Header -->
+      <header class="app-header">
+        <div class="header-left">
+          <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Menu">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <div class="header-title-block">
+            <h1>Weather Analytics</h1>
+            <p>Current weather monitoring across 20 major US cities.</p>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <div class="last-updated-badge">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span>Last Updated: <strong id="lastUpdatedText">--</strong></span>
+          </div>
+          <button class="btn btn-secondary" id="btnRefresh" title="Refresh strictly from Redis database">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+            Refresh
+          </button>
+          <button class="btn btn-primary" id="btnFetch" title="Concurrently fetch fresh data from Open-Meteo and store in Redis">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Get Weather Data
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Dashboard Content -->
+      <main class="page-content">
+        
+        <!-- Summary Cards (Dark / Contrast Header Cards) -->
+        <section class="metrics-grid">
+          <!-- 1. Total Cities -->
+          <div class="metric-card dark">
+            <div class="metric-card-header">
+              <span class="metric-title">Total Cities</span>
+              <div class="metric-card-icon">🏙️</div>
+            </div>
+            <div class="metric-value" id="metricTotalCities">20</div>
+            <div class="metric-subtext">US Metros monitored</div>
+          </div>
+
+          <!-- 2. Average Temperature -->
+          <div class="metric-card dark">
+            <div class="metric-card-header">
+              <span class="metric-title">Avg Temperature</span>
+              <div class="metric-card-icon">🌡️</div>
+            </div>
+            <div class="metric-value" id="metricAvgTemp">--</div>
+            <div class="metric-subtext">Across all active cities</div>
+          </div>
+
+          <!-- 3. Hottest City -->
+          <div class="metric-card dark accent-card">
+            <div class="metric-card-header">
+              <span class="metric-title">Hottest City</span>
+              <div class="metric-card-icon">🔥</div>
+            </div>
+            <div class="metric-value" id="metricHottest">--</div>
+            <div class="metric-subtext">Peak thermal reading</div>
+          </div>
+
+          <!-- 4. Coldest City -->
+          <div class="metric-card dark">
+            <div class="metric-card-header">
+              <span class="metric-title">Coldest City</span>
+              <div class="metric-card-icon">❄️</div>
+            </div>
+            <div class="metric-value" id="metricColdest">--</div>
+            <div class="metric-subtext">Lowest thermal reading</div>
+          </div>
+
+          <!-- 5. Average Humidity -->
+          <div class="metric-card dark">
+            <div class="metric-card-header">
+              <span class="metric-title">Avg Humidity</span>
+              <div class="metric-card-icon">💧</div>
+            </div>
+            <div class="metric-value" id="metricAvgHumidity">--</div>
+            <div class="metric-subtext">Relative atmosphere moisture</div>
+          </div>
+
+          <!-- 6. Average Wind Speed -->
+          <div class="metric-card dark">
+            <div class="metric-card-header">
+              <span class="metric-title">Avg Wind Speed</span>
+              <div class="metric-card-icon">💨</div>
+            </div>
+            <div class="metric-value" id="metricAvgWind">--</div>
+            <div class="metric-subtext">Surface atmospheric velocity</div>
+          </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3>Temperature by City</h3>
+                <p>Recorded values in Fahrenheit (°F)</p>
+              </div>
+              <span class="chart-badge">Fahrenheit</span>
+            </div>
+            <div class="chart-canvas-container">
+              <canvas id="tempChart"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3>Humidity by City</h3>
+                <p>Relative humidity levels (%)</p>
+              </div>
+              <span class="chart-badge">Percentage</span>
+            </div>
+            <div class="chart-canvas-container">
+              <canvas id="humidityChart"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3>Wind Speed by City</h3>
+                <p>Sustained velocity at 10 meters (mph)</p>
+              </div>
+              <span class="chart-badge">Velocity</span>
+            </div>
+            <div class="chart-canvas-container">
+              <canvas id="windChart"></canvas>
+            </div>
+          </div>
+        </section>
+
+        <!-- City Weather Table Section -->
+        <section class="section-card">
+          <div class="section-header">
+            <div class="section-title-group">
+              <h2>City Weather Telemetry</h2>
+              <p>Real-time readings and environmental condition breakdowns</p>
+            </div>
+
+            <div class="table-controls">
+              <!-- Instant Search -->
+              <div class="search-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="citySearch" placeholder="Search cities..." autocomplete="off">
+              </div>
+
+              <!-- Condition Filter Dropdown -->
+              <select id="conditionFilter" class="filter-select">
+                <option value="All">All Conditions</option>
+                <option value="Clear">Clear</option>
+                <option value="Cloudy">Cloudy</option>
+                <option value="Rain">Rain / Drizzle</option>
+                <option value="Snow">Snow</option>
+                <option value="Thunderstorm">Thunderstorm</option>
+                <option value="Fog">Fog</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Empty State (When Redis has no data yet) -->
+          <div id="emptyState" class="empty-state" style="display: none;">
+            <div class="empty-icon">⛅</div>
+            <h3 class="empty-title">No weather data available</h3>
+            <p class="empty-desc">Click "Get Weather Data" to fetch current weather for 20 US cities and populate the Redis cache.</p>
+            <button class="btn btn-primary" onclick="document.getElementById('btnFetch').click()">
+              Get Weather Data
+            </button>
+          </div>
+
+          <!-- Table Container -->
+          <div class="table-responsive" id="tableContainer">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th data-sort="city">
+                    <span class="th-content">City <span class="sort-icon">▲</span></span>
+                  </th>
+                  <th data-sort="temperature">
+                    <span class="th-content">Temperature <span class="sort-icon">⇅</span></span>
+                  </th>
+                  <th data-sort="feelsLike">
+                    <span class="th-content">Feels Like <span class="sort-icon">⇅</span></span>
+                  </th>
+                  <th data-sort="humidity">
+                    <span class="th-content">Humidity <span class="sort-icon">⇅</span></span>
+                  </th>
+                  <th data-sort="windSpeed">
+                    <span class="th-content">Wind Speed <span class="sort-icon">⇅</span></span>
+                  </th>
+                  <th data-sort="condition">
+                    <span class="th-content">Condition <span class="sort-icon">⇅</span></span>
+                  </th>
+                  <th data-sort="timestamp">
+                    <span class="th-content">Last Updated <span class="sort-icon">⇅</span></span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="weatherTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- JavaScript Modules -->
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
