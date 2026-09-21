@@ -182,11 +182,63 @@ async function getHistoricalReportByTimestamp(timestamp) {
   return JSON.parse(raw);
 }
 
+/**
+ * Caches an authenticated user session in Redis with TTL.
+ * Uses key format: user:session:<tokenHash>
+ */
+async function cacheUserSession(token, user, ttlSeconds = 604800) {
+  if (!isRedisConnected()) return false;
+  try {
+    const client = getRedisClient();
+    const key = `user:session:${token.slice(-32)}`;
+    await client.set(key, JSON.stringify(user), { EX: ttlSeconds });
+    return true;
+  } catch (err) {
+    console.warn('[Redis] Failed to cache user session:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Retrieves a cached user session from Redis.
+ */
+async function getCachedUserSession(token) {
+  if (!isRedisConnected()) return null;
+  try {
+    const client = getRedisClient();
+    const key = `user:session:${token.slice(-32)}`;
+    const raw = await client.get(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    console.warn('[Redis] Failed to retrieve cached session:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Invalidates a cached user session in Redis upon logout.
+ */
+async function invalidateUserSession(token) {
+  if (!isRedisConnected()) return false;
+  try {
+    const client = getRedisClient();
+    const key = `user:session:${token.slice(-32)}`;
+    await client.del(key);
+    return true;
+  } catch (err) {
+    console.warn('[Redis] Failed to invalidate session:', err.message);
+    return false;
+  }
+}
+
 module.exports = {
   ensureConnected,
   saveLatestWeather,
   getLatestWeather,
   saveHistoricalReport,
   getHistoricalReports,
-  getHistoricalReportByTimestamp
+  getHistoricalReportByTimestamp,
+  cacheUserSession,
+  getCachedUserSession,
+  invalidateUserSession
 };

@@ -2,8 +2,13 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { connectRedis, isRedisConnected } = require('./config/redis');
+const { initDatabase } = require('./config/database');
 const weatherRoutes = require('./routes/weatherRoutes');
 const weatherController = require('./controllers/weatherController');
+const authRoutes = require('./routes/authRoutes');
+const amazonRoutes = require('./routes/amazonRoutes');
+const sendboxRoutes = require('./routes/sendboxRoutes');
+const productRoutes = require('./routes/productRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,7 +37,7 @@ app.use(
       }
       return callback(null, true); // Fallback allow in local dev
     },
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
   })
 );
@@ -50,10 +55,16 @@ app.get('/api/health', weatherController.healthCheck);
 // Mount Weather Routes
 app.use('/api/weather', weatherRoutes);
 
+// Mount Multi-User & Product Management Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/amazon', amazonRoutes);
+app.use('/api/sendbox', sendboxRoutes);
+app.use('/api/products', productRoutes);
+
 // API Documentation / metadata route
 app.get('/api', (req, res) => {
   res.json({
-    name: 'Weather Reporting Dashboard API',
+    name: 'Weather Reporting & Amazon Product Dashboard API',
     version: '1.0.0',
     endpoints: [
       'GET /api/health',
@@ -61,7 +72,23 @@ app.get('/api', (req, res) => {
       'GET /api/weather/latest',
       'POST /api/weather/fetch',
       'GET /api/weather/reports',
-      'GET /api/weather/report/:timestamp'
+      'GET /api/weather/report/:timestamp',
+      'POST /api/auth/register',
+      'POST /api/auth/login',
+      'GET /api/auth/me',
+      'POST /api/auth/logout',
+      'GET /api/amazon/status',
+      'POST /api/amazon/connect',
+      'POST /api/amazon/callback',
+      'POST /api/amazon/disconnect',
+      'POST /api/amazon/simulation',
+      'GET /api/sendbox/status',
+      'GET /api/products',
+      'GET /api/products/:id',
+      'POST /api/products',
+      'PUT /api/products/:id',
+      'DELETE /api/products/:id',
+      'POST /api/products/:id/sync'
     ],
     redisStatus: isRedisConnected() ? 'connected' : 'disconnected'
   });
@@ -96,12 +123,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Initialize server and Redis connection
+// Initialize server, SQLite database, and Redis connection
 async function startServer() {
   try {
-    await connectRedis();
+    initDatabase();
   } catch (err) {
-    console.error('Failed to initialize Redis on startup:', err.message);
+    console.error('Failed to initialize SQLite database on startup:', err.message);
   }
 
   const server = app.listen(PORT, () => {
@@ -109,6 +136,11 @@ async function startServer() {
     console.log(`Weather Analytics Server running on port ${PORT}`);
     console.log(`Health Check: http://localhost:${PORT}/api/health`);
     console.log(`=============================================`);
+  });
+
+  // Connect to Redis in background without blocking server startup
+  connectRedis().catch((err) => {
+    console.warn('[Redis] Redis initial connection notice:', err.message);
   });
 
   // Graceful shutdown
