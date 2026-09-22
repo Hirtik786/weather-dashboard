@@ -19,6 +19,8 @@ const productIntegrationModel = {
     amazonAsin = null,
     amazonStatus = 'NOT_LISTED',
     sendboxProductId = null,
+    sendboxShipmentId = null,
+    sendboxOrderId = null,
     sendboxStatus = 'NOT_SYNCED',
     syncStatus = 'SYNCED',
     lastSyncedAt = null,
@@ -35,6 +37,8 @@ const productIntegrationModel = {
              amazon_asin = COALESCE(?, amazon_asin),
              amazon_status = ?,
              sendbox_product_id = COALESCE(?, sendbox_product_id),
+             sendbox_shipment_id = COALESCE(?, sendbox_shipment_id),
+             sendbox_order_id = COALESCE(?, sendbox_order_id),
              sendbox_status = ?,
              sync_status = ?,
              last_synced_at = ?,
@@ -47,6 +51,8 @@ const productIntegrationModel = {
           amazonAsin,
           amazonStatus,
           sendboxProductId,
+          sendboxShipmentId,
+          sendboxOrderId,
           sendboxStatus,
           syncStatus,
           lastSyncedAt || now,
@@ -61,9 +67,10 @@ const productIntegrationModel = {
       execute(
         `INSERT INTO product_integrations (
            id, user_id, product_id, amazon_listing_id, amazon_sku,
-           amazon_asin, amazon_status, sendbox_product_id, sendbox_status,
-           sync_status, last_synced_at, last_sync_error, created_at, updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           amazon_asin, amazon_status, sendbox_product_id, sendbox_shipment_id,
+           sendbox_order_id, sendbox_status, sync_status, last_synced_at,
+           last_sync_error, created_at, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           userId,
@@ -73,6 +80,8 @@ const productIntegrationModel = {
           amazonAsin,
           amazonStatus,
           sendboxProductId,
+          sendboxShipmentId,
+          sendboxOrderId,
           sendboxStatus,
           syncStatus,
           lastSyncedAt || now,

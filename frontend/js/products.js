@@ -271,10 +271,14 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
 
       <div class="detail-section">
-        <div class="detail-section-title">Sendbox Channel Integration</div>
+        <div class="detail-section-title">Sendbox Logistics & Fulfillment</div>
         <div class="detail-row">
-          <span class="detail-row-label">Sendbox Product ID</span>
-          <span class="detail-row-val" style="font-family: monospace;">${product.sendbox_product_id || 'Not Assigned'}</span>
+          <span class="detail-row-label">Sendbox Shipment Code</span>
+          <span class="detail-row-val" style="font-family: monospace;">${product.sendbox_shipment_id || product.sendbox_product_id || 'Not Assigned'}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-row-label">Sendbox Order / Reference</span>
+          <span class="detail-row-val" style="font-family: monospace;">${product.sendbox_order_id || 'N/A'}</span>
         </div>
         <div class="detail-row">
           <span class="detail-row-label">Sendbox Status</span>

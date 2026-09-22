@@ -89,6 +89,8 @@ function initDatabase(dbPath = null) {
       amazon_asin TEXT,
       amazon_status TEXT NOT NULL DEFAULT 'NOT_LISTED',
       sendbox_product_id TEXT,
+      sendbox_shipment_id TEXT,
+      sendbox_order_id TEXT,
       sendbox_status TEXT NOT NULL DEFAULT 'NOT_SYNCED',
       sync_status TEXT NOT NULL DEFAULT 'SYNCED',
       last_synced_at TEXT,
@@ -102,6 +104,8 @@ function initDatabase(dbPath = null) {
   try { db.exec('ALTER TABLE users ADD COLUMN name TEXT;'); } catch {}
   try { db.exec('ALTER TABLE users ADD COLUMN amazon_user_id TEXT;'); } catch {}
   try { db.exec("ALTER TABLE users ADD COLUMN auth_provider TEXT NOT NULL DEFAULT 'local';"); } catch {}
+  try { db.exec('ALTER TABLE product_integrations ADD COLUMN sendbox_shipment_id TEXT;'); } catch {}
+  try { db.exec('ALTER TABLE product_integrations ADD COLUMN sendbox_order_id TEXT;'); } catch {}
 
   // Create indices
   db.exec(`

@@ -431,15 +431,191 @@ async function runTests() {
       amazon_user_id: 'amzn1.account.123',
       client_secret: 'super_secret_lwa_key',
       refresh_token: 'refresh_token_xyz',
-      password: 'password123'
+      password: 'password123',
+      access_token: 'sendbox_access_token_secret'
     });
 
     assert(
       sanitized.client_secret === '[REDACTED]' &&
         sanitized.refresh_token === '[REDACTED]' &&
+        sanitized.access_token === '[REDACTED]' &&
         sanitized.password === '[REDACTED]' &&
         sanitized.amazon_user_id === 'amzn1.account.123',
       'Test 17: Logger automatically redacts client secrets and sensitive credentials'
+    );
+  }
+
+  // ----------------------------------------------------
+  // Test 18: Sendbox Mock Mode fallback operations with separate resource IDs
+  // ----------------------------------------------------
+  {
+    const sendboxService = require('../services/sendbox/sendboxService');
+    process.env.SENDBOX_MODE = 'mock';
+
+    const status = await sendboxService.getStatus(amzUserA.id);
+    assert(
+      status.connected === true && status.mode === 'mock',
+      'Test 18a: Sendbox status in mock mode returns connected demo status'
+    );
+
+    const created = await sendboxService.createProduct(amzUserA.id, {
+      id: 'test-p1',
+      sku: 'TEST-SKU-001',
+      title: 'Test Barometer',
+      price: 19.99,
+      quantity: 10
+    });
+    assert(
+      created.success === true &&
+        created.sendboxShipmentId &&
+        created.sendboxOrderId &&
+        created.sendboxProductId === null &&
+        created.status === 'SYNCED',
+      'Test 18b: Sendbox createProduct succeeds in mock mode returning separate shipment and order IDs'
+    );
+
+    const updated = await sendboxService.updateProduct(amzUserA.id, created.sendboxShipmentId, {
+      title: 'Updated Barometer',
+      price: 24.99
+    });
+    assert(
+      updated.success === true && updated.status === 'SYNCED',
+      'Test 18c: Sendbox updateProduct succeeds with shipment identifier'
+    );
+
+    const deleted = await sendboxService.deleteProduct(amzUserA.id, created.sendboxShipmentId);
+    assert(
+      deleted.success === true && deleted.status === 'DEACTIVATED',
+      'Test 18d: Sendbox deleteProduct succeeds in mock mode'
+    );
+  }
+
+  // ----------------------------------------------------
+  // Test 19: Sendbox Real Mode switching and unconfigured handling
+  // ----------------------------------------------------
+  {
+    const realSendboxService = require('../services/sendbox/realSendboxService');
+    const sendboxService = require('../services/sendbox/sendboxService');
+
+    process.env.SENDBOX_MODE = 'real';
+    delete process.env.SENDBOX_ACCESS_TOKEN;
+    delete process.env.SENDBOX_CLIENT_ID;
+    delete process.env.SENDBOX_CLIENT_SECRET;
+    delete process.env.SENDBOX_APP_ID;
+
+    assert(
+      sendboxService.getMode() === 'real',
+      'Test 19a: SENDBOX_MODE=real correctly activates real Sendbox mode'
+    );
+
+    const unconfiguredStatus = await realSendboxService.getStatus(amzUserA.id);
+    assert(
+      unconfiguredStatus.connected === false && unconfiguredStatus.configured === false,
+      'Test 19b: Real Sendbox service reports unconfigured when credentials are missing'
+    );
+
+    const unconfiguredCreate = await realSendboxService.createProduct(amzUserA.id, {
+      sku: 'TEST-REAL-SKU',
+      title: 'Test Sensor'
+    });
+    assert(
+      unconfiguredCreate.success === false && unconfiguredCreate.error.includes('credentials'),
+      'Test 19c: Real Sendbox service prevents API call when credentials missing'
+    );
+  }
+
+  // ----------------------------------------------------
+  // Test 20: Sendbox Real Mode API Header construction & branch resolution
+  // ----------------------------------------------------
+  {
+    const realSendboxService = require('../services/sendbox/realSendboxService');
+    realSendboxService.accessToken = 'Bearer test_token_12345';
+    realSendboxService.appId = 'app_id_999';
+    realSendboxService.clientSecret = 'secret_key_888';
+    realSendboxService.clientId = '';
+
+    const headers = realSendboxService.getHeaders();
+    assert(
+      headers['Authorization'] === 'test_token_12345' &&
+        headers['App-Id'] === 'app_id_999' &&
+        headers['Secret-Key'] === 'secret_key_888' &&
+        headers['Content-Type'] === 'application/json',
+      'Test 20: Real Sendbox service constructs standard official headers without dead branches'
+    );
+  }
+
+  // ----------------------------------------------------
+  // Test 21: Diagnostic verification for resources (SKU, shipment, order)
+  // ----------------------------------------------------
+  {
+    const mockSendboxService = require('../services/sendbox/mockSendboxService');
+    const sendboxService = require('../services/sendbox/sendboxService');
+    process.env.SENDBOX_MODE = 'mock';
+
+    // Seed mock shipment with SKU YU
+    await mockSendboxService.createProduct('test-user-1', {
+      sku: 'YU',
+      title: 'Smart Weather Sensor YU',
+      price: 50,
+      quantity: 1
+    });
+
+    const verifyYu = await sendboxService.verifyResource('YU');
+    assert(
+      verifyYu.found === true &&
+        verifyYu.resourceType === 'shipment_item' &&
+        verifyYu.details.item.sku === 'YU',
+      'Test 21a: verifyResource correctly identifies SKU YU as a shipment_item with shipment code'
+    );
+
+    const verifyNotFound = await sendboxService.verifyResource('NONEXISTENT_SKU_XYZ_999');
+    assert(
+      verifyNotFound.found === false && verifyNotFound.resourceType === 'not_found',
+      'Test 21b: verifyResource correctly reports not_found for nonexistent SKU'
+    );
+  }
+
+  // ----------------------------------------------------
+  // Test 22: HTTP 404 descriptive error formatting
+  // ----------------------------------------------------
+  {
+    const realSendboxService = require('../services/sendbox/realSendboxService');
+    const mock404Error = {
+      response: {
+        status: 404,
+        data: { title: '404 Not Found' }
+      },
+      message: 'Request failed with status code 404'
+    };
+
+    const formatted = realSendboxService.formatError(mock404Error, '/shipping/shipments/invalid-id', 'GET');
+    assert(
+      formatted.includes('HTTP 404') && formatted.includes('/shipping/shipments/invalid-id'),
+      'Test 22: formatError produces actionable message explaining the missing endpoint/resource'
+    );
+  }
+
+  // ----------------------------------------------------
+  // Test 23: Separate resource IDs stored in product_integrations
+  // ----------------------------------------------------
+  {
+    const productIntegrationModel = require('../models/productIntegrationModel');
+
+    const saved = productIntegrationModel.upsertIntegration({
+      userId: amzUserA.id,
+      productId: amzUserAProductId,
+      sendboxShipmentId: '0006991273',
+      sendboxOrderId: '0006991273',
+      sendboxProductId: null,
+      sendboxStatus: 'SYNCED',
+      syncStatus: 'SYNCED'
+    });
+
+    assert(
+      saved.sendbox_shipment_id === '0006991273' &&
+        saved.sendbox_order_id === '0006991273' &&
+        saved.sendbox_product_id === null,
+      'Test 23: Database schema and model store separate sendbox_shipment_id and sendbox_order_id'
     );
   }
 
@@ -452,7 +628,7 @@ async function runTests() {
   if (failedCount > 0) {
     process.exit(1);
   } else {
-    console.log('\nAll Login with Amazon (LWA) test specifications PASSED!\n');
+    console.log('\nAll System, Amazon, and Sendbox test specifications PASSED!\n');
     process.exit(0);
   }
 }

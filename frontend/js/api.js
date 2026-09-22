@@ -221,6 +221,15 @@ const SendboxAPI = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Failed to retrieve Sendbox status');
     return data;
+  },
+
+  async verify(identifier) {
+    const res = await fetch(`${API_BASE}/sendbox/verify/${encodeURIComponent(identifier)}`, {
+      headers: AuthStorage.getHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || `Failed to verify resource '${identifier}'`);
+    return data;
   }
 };
 

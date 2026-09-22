@@ -12,7 +12,32 @@ const sendboxController = {
     } catch (err) {
       return res.status(500).json({
         success: false,
-        message: 'Failed to retrieve Sendbox status'
+        message: 'Failed to retrieve Sendbox status',
+        error: err.message
+      });
+    }
+  },
+
+  async verifyResource(req, res) {
+    try {
+      const { identifier } = req.params;
+      if (!identifier) {
+        return res.status(400).json({
+          success: false,
+          message: 'Identifier parameter (SKU, shipment code, or ID) is required'
+        });
+      }
+
+      const result = await sendboxService.verifyResource(identifier);
+      return res.json({
+        success: true,
+        ...result
+      });
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to verify resource on Sendbox',
+        error: err.message
       });
     }
   }

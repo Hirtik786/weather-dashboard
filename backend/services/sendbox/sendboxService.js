@@ -1,77 +1,64 @@
 const mockSendboxService = require('./mockSendboxService');
+const realSendboxService = require('./realSendboxService');
 const logger = require('../../utils/logger');
 
-const SENDBOX_BOUNDARY_MESSAGE = `Sendbox integration is currently running in MOCK mode.
-
-To enable the real integration, I need:
-- Official Sendbox API documentation
-- Authentication method
-- Base API URL
-- Product endpoints
-- Product request schemas
-- Product response schemas
-- Update/delete behavior
-- Required credentials/environment variables
-- Webhook documentation if synchronization uses webhooks`;
-
+/**
+ * Sendbox Service Facade
+ * Cleanly switches between Mock and Real implementations based on SENDBOX_MODE.
+ * Retains SENDBOX_MODE=mock as fallback. Use SENDBOX_MODE=real for the live API.
+ */
 class SendboxService {
+  /**
+   * Returns current active mode ('real' or 'mock')
+   */
   getMode() {
     return (process.env.SENDBOX_MODE || 'mock').toLowerCase();
   }
 
-  getBoundaryDocumentationNotice() {
-    return SENDBOX_BOUNDARY_MESSAGE;
+  /**
+   * Returns active service instance based on mode
+   */
+  getService() {
+    const mode = this.getMode();
+    if (mode === 'real') {
+      return realSendboxService;
+    }
+    return mockSendboxService;
   }
 
+  /**
+   * Gets Sendbox status
+   */
   async getStatus(userId) {
-    const mode = this.getMode();
-    if (mode === 'real') {
-      return {
-        connected: false,
-        status: 'Awaiting Documentation',
-        mode: 'real',
-        notice: SENDBOX_BOUNDARY_MESSAGE
-      };
-    }
-    const status = await mockSendboxService.getStatus(userId);
-    return {
-      ...status,
-      notice: SENDBOX_BOUNDARY_MESSAGE
-    };
+    return this.getService().getStatus(userId);
   }
 
+  /**
+   * Synchronizes product fulfillment on Sendbox
+   */
   async createProduct(userId, product) {
-    const mode = this.getMode();
-    if (mode === 'real') {
-      logger.warn('Sendbox real mode called without official documentation');
-      return {
-        success: false,
-        error: 'Sendbox real mode cannot be executed without official API documentation and endpoints.'
-      };
-    }
-    return mockSendboxService.createProduct(userId, product);
+    return this.getService().createProduct(userId, product);
   }
 
-  async updateProduct(userId, sendboxProductId, updates) {
-    const mode = this.getMode();
-    if (mode === 'real') {
-      return {
-        success: false,
-        error: 'Sendbox real mode cannot be executed without official API documentation.'
-      };
-    }
-    return mockSendboxService.updateProduct(userId, sendboxProductId, updates);
+  /**
+   * Updates an existing product/shipment in Sendbox
+   */
+  async updateProduct(userId, sendboxIdentifier, updates) {
+    return this.getService().updateProduct(userId, sendboxIdentifier, updates);
   }
 
-  async deleteProduct(userId, sendboxProductId) {
-    const mode = this.getMode();
-    if (mode === 'real') {
-      return {
-        success: false,
-        error: 'Sendbox real mode cannot be executed without official API documentation.'
-      };
-    }
-    return mockSendboxService.deleteProduct(userId, sendboxProductId);
+  /**
+   * Deactivates or cancels a shipment on Sendbox
+   */
+  async deleteProduct(userId, sendboxIdentifier) {
+    return this.getService().deleteProduct(userId, sendboxIdentifier);
+  }
+
+  /**
+   * Diagnostic verification for a resource / SKU / shipment on Sendbox
+   */
+  async verifyResource(identifier) {
+    return this.getService().verifyResource(identifier);
   }
 }
 
